@@ -1,4 +1,6 @@
 .venv/
 __pycache__/
 data/output/
+data/external/
 *.drawio.bkp
+test.py

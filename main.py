@@ -2,6 +2,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 from collections import deque
+from time import perf_counter
+from numba import njit
 
 DIR4 = [(1,0),(-1,0),(0,1),(0,-1)]
 DIR8 = [(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
@@ -39,7 +41,13 @@ def read_maze(image_path, output_path):
     binary * 255
     )
 
+    t = perf_counter()
     road = Zhang_Suen(binary)
+    print(f"初回: {perf_counter() - t:.3f}s")
+
+    # t = perf_counter()
+    # road = Zhang_Suen(binary)
+    # print(f"2回目: {perf_counter() - t:.3f}s")
 
     road_img = (road * 255).astype(np.uint8)
     cv2.imwrite(
@@ -62,11 +70,13 @@ def read_maze(image_path, output_path):
     cv2.waitKey(0) 
     cv2.destroyAllWindows()
 
+@njit
 
 def neighbours(x, y, image):
     return [image[x-1][y], image[x-1][y+1], image[x][y+1], image[x+1][y+1],
              image[x+1][y], image[x+1][y-1], image[x][y-1], image[x-1][y-1]]
 
+@njit
 def count_zero_to_one(points):
     res = 0
     for i in range(8):
@@ -74,15 +84,29 @@ def count_zero_to_one(points):
             res += 1
     return res
 
+@njit
 def Zhang_Suen(binary_imag):
     imag = binary_imag.copy()
     h, w = imag.shape
     changed1 = changed2 = 1
+
+    # start = perf_counter()
+    iterations = 0
+
     while changed1 or changed2:
+
+        iterations += 1
+        # if iterations % 10 == 0:
+        # elapsed = perf_counter() - start
+        # print(f"{iterations=}, {elapsed=:.2f}s", flush=True)
+        print("iterations:", iterations)
+        
         changed1 = 0
         changed = []
         for x in range(1, h - 1):
             for y in range(1, w - 1):
+                if imag[x, y] == 0:
+                    continue
                 p2, p3, p4, p5, p6, p7, p8, p9 = points = neighbours(x, y, imag)
                 if(imag[x][y] == 1 and 2 <= sum(points) <= 6 and count_zero_to_one(points) == 1 and p2 * p4 * p6 == 0 and p4 * p6 * p8 == 0):
                     changed.append((x, y))
@@ -95,6 +119,8 @@ def Zhang_Suen(binary_imag):
         changed2 = 0
         for x in range(1, h - 1):
             for y in range(1, w - 1):
+                if imag[x, y] == 0:
+                    continue
                 p2, p3, p4, p5, p6, p7, p8, p9 = points = neighbours(x, y, imag)
                 if(imag[x][y] == 1 and 2 <= sum(points) <= 6 and count_zero_to_one(points) == 1 and p2 * p4 * p8 == 0 and p2 * p6 * p8 == 0):
                     changed.append((x, y))
@@ -250,7 +276,7 @@ def solve_maze(road, start, goal):
 
 
 def main():
-    input_path = Path("data/input/maze1.png")
+    input_path = Path("data/input/image.png")
     output_path = Path("data/output")
     read_maze(input_path, output_path)
 
